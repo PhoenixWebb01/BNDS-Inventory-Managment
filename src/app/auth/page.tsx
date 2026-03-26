@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -17,6 +17,8 @@ export default function AuthPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
+
+    const supabase = createClient();
 
     try {
       if (isSignUp) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import Sidebar from "@/components/Sidebar";
 import type { Category, Item, ActivityLog, Profile } from "@/types/database";
 
@@ -30,6 +30,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadDashboard() {
+      const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/auth"); return; }
 

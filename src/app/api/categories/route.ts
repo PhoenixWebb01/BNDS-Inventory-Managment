@@ -1,45 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-function getSupabase(req: NextRequest) {
-  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: `Bearer ${token}` } } }
-  );
-}
+import { prisma } from "@/lib/prisma";
 
 // GET /api/categories - List all categories
-export async function GET(req: NextRequest) {
-  const supabase = getSupabase(req);
+export async function GET() {
+  try {
+    const categories = await prisma.category.findMany({
+      orderBy: { name: "asc" },
+    });
 
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .order("name");
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(categories);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json(data);
 }
 
-// POST /api/categories - Create a new category (admin/manager only)
+// POST /api/categories - Create a new category
 export async function POST(req: NextRequest) {
-  const supabase = getSupabase(req);
   const body = await req.json();
 
-  const { data, error } = await supabase
-    .from("categories")
-    .insert(body)
-    .select()
-    .single();
+  try {
+    const category = await prisma.category.create({
+      data: {
+        name: body.name,
+        description: body.description || null,
+        prefix: body.prefix,
+        color: body.color,
+        icon: body.icon || "package",
+        customFields: body.custom_fields || [],
+      },
+    });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(category, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json(data, { status: 201 });
 }

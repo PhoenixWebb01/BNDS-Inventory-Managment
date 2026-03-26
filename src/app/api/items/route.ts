@@ -1,117 +1,126 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-// Server-side Supabase client that uses the user's auth token
-function getSupabase(req: NextRequest) {
-  const token = req.headers.get("Authorization")?.replace("Bearer ", "");
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: `Bearer ${token}` } } }
-  );
-}
+import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 
 // GET /api/items - List all items (with optional filters)
 export async function GET(req: NextRequest) {
-  const supabase = getSupabase(req);
   const { searchParams } = new URL(req.url);
 
-  // Build query with optional filters
-  let query = supabase
-    .from("items")
-    .select(`
-      *,
-      category:categories(*),
-      location:locations(*)
-    `)
-    .order("created_at", { ascending: false });
+  // Build filter conditions
+  const where: Record<string, unknown> = {};
 
-  // Filter by category
   const categoryId = searchParams.get("category_id");
-  if (categoryId) query = query.eq("category_id", categoryId);
+  if (categoryId) where.categoryId = categoryId;
 
-  // Filter by location
   const locationId = searchParams.get("location_id");
-  if (locationId) query = query.eq("location_id", locationId);
+  if (locationId) where.locationId = locationId;
 
-  // Filter by status
   const status = searchParams.get("status");
-  if (status) query = query.eq("status", status);
+  if (status) where.status = status;
 
-  // Search by name
   const search = searchParams.get("search");
-  if (search) query = query.ilike("name", `%${search}%`);
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { barcode: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } },
+    ];
+  }
 
   // Pagination
   const page = parseInt(searchParams.get("page") || "1");
   const limit = parseInt(searchParams.get("limit") || "50");
-  const from = (page - 1) * limit;
-  query = query.range(from, from + limit - 1);
+  const skip = (page - 1) * limit;
 
-  const { data, error, count } = await query;
+  try {
+    const [items, count] = await Promise.all([
+      prisma.item.findMany({
+        where,
+        include: {
+          category: true,
+          location: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.item.count({ where }),
+    ]);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ items, count, page, limit });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({ items: data, count, page, limit });
 }
 
 // POST /api/items - Create a new item
 export async function POST(req: NextRequest) {
-  const supabase = getSupabase(req);
-  const body = await req.json();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Get the user's ID for the created_by field
-  const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // If no barcode provided, auto-generate one
-  let barcode = body.barcode;
-  if (!barcode && body.category_id) {
-    // Look up the category prefix
-    const { data: category } = await supabase
-      .from("categories")
-      .select("prefix")
-      .eq("id", body.category_id)
-      .single();
+  const body = await req.json();
 
-    if (category) {
-      // Call our barcode generator function
-      const { data: barcodeData } = await supabase
-        .rpc("generate_barcode", { prefix: category.prefix });
-      barcode = barcodeData;
+  try {
+    // If no barcode provided, auto-generate one
+    let barcode = body.barcode;
+    if (!barcode && body.category_id) {
+      const category = await prisma.category.findUnique({
+        where: { id: body.category_id },
+        select: { prefix: true },
+      });
+
+      if (category) {
+        // Count existing items with this prefix to generate next barcode
+        const count = await prisma.item.count({
+          where: { barcode: { startsWith: category.prefix } },
+        });
+        barcode = `${category.prefix}-${String(count + 1).padStart(5, "0")}`;
+      }
     }
+
+    // Create the item
+    const item = await prisma.item.create({
+      data: {
+        barcode: barcode || `INV-${Date.now()}`,
+        name: body.name,
+        description: body.description || null,
+        categoryId: body.category_id || null,
+        locationId: body.location_id || null,
+        quantity: body.quantity || 0,
+        minQuantity: body.min_quantity || 0,
+        unit: body.unit || "each",
+        status: body.status || "in_stock",
+        vendor: body.vendor || null,
+        vendorSku: body.vendor_sku || null,
+        notes: body.notes || null,
+        createdBy: user.id,
+      },
+      include: {
+        category: true,
+        location: true,
+      },
+    });
+
+    // Log the creation in the activity log
+    await prisma.activityLog.create({
+      data: {
+        itemId: item.id,
+        userId: user.id,
+        action: "created",
+        details: { item_name: item.name, barcode: item.barcode },
+      },
+    });
+
+    return NextResponse.json(item, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  // Create the item
-  const { data, error } = await supabase
-    .from("items")
-    .insert({
-      ...body,
-      barcode,
-      created_by: user.id,
-    })
-    .select(`
-      *,
-      category:categories(*),
-      location:locations(*)
-    `)
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  // Log the creation in the activity log
-  await supabase.from("activity_log").insert({
-    item_id: data.id,
-    user_id: user.id,
-    action: "created",
-    details: { item_name: data.name, barcode: data.barcode },
-  });
-
-  return NextResponse.json(data, { status: 201 });
 }

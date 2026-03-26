@@ -1,0 +1,131 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ═══════════════════════════════════════════════
+// PROFILES & AUTH
+// ═══════════════════════════════════════════════
+
+model Profile {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email       String   @unique @db.VarChar(255)
+  fullName    String   @map("full_name") @db.VarChar(255)
+  role        String   @default("staff") @db.VarChar(20) // admin, manager, staff
+  department  String?  @db.VarChar(100)
+  phone       String?  @db.VarChar(20)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Reverse relations
+  itemsCreated    Item[]        @relation("ItemCreator")
+  itemsAssigned   Item[]        @relation("ItemAssignee")
+  activityLogs    ActivityLog[] @relation("ActivityUser")
+
+  @@map("profiles")
+}
+
+// ═══════════════════════════════════════════════
+// CATEGORIES
+// ═══════════════════════════════════════════════
+
+model Category {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String   @db.VarChar(255)
+  description  String?  @db.Text
+  prefix       String   @db.VarChar(10)
+  color        String   @db.VarChar(20)
+  icon         String   @db.VarChar(50)
+  customFields Json     @default("[]") @map("custom_fields")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  items Item[]
+
+  @@map("categories")
+}
+
+// ═══════════════════════════════════════════════
+// LOCATIONS
+// ═══════════════════════════════════════════════
+
+model Location {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @db.VarChar(255)
+  zone        String?  @db.VarChar(100)
+  shelf       String?  @db.VarChar(100)
+  building    String   @db.VarChar(255)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  items Item[]
+
+  @@map("locations")
+}
+
+// ═══════════════════════════════════════════════
+// ITEMS (INVENTORY)
+// ═══════════════════════════════════════════════
+
+model Item {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  barcode           String   @unique @db.VarChar(50)
+  name              String   @db.VarChar(255)
+  description       String?  @db.Text
+  categoryId        String?  @map("category_id") @db.Uuid
+  locationId        String?  @map("location_id") @db.Uuid
+  quantity          Int      @default(0)
+  minQuantity       Int      @default(0) @map("min_quantity")
+  unit              String   @default("each") @db.VarChar(20)
+  status            String   @default("in_stock") @db.VarChar(20) // in_stock, low_stock, out_of_stock, on_order, retired, disposed
+  photoUrl          String?  @map("photo_url") @db.Text
+  additionalPhotos  Json     @default("[]") @map("additional_photos")
+  purchaseDate      DateTime? @map("purchase_date") @db.Date
+  purchasePrice     Decimal?  @map("purchase_price") @db.Decimal(10, 2)
+  vendor            String?  @db.VarChar(255)
+  vendorSku         String?  @map("vendor_sku") @db.VarChar(100)
+  warrantyExpiration DateTime? @map("warranty_expiration") @db.Date
+  expirationDate    DateTime? @map("expiration_date") @db.Date
+  assignedTo        String?  @map("assigned_to") @db.Uuid
+  assignedDate      DateTime? @map("assigned_date") @db.Date
+  customData        Json     @default("{}") @map("custom_data")
+  notes             String?  @db.Text
+  createdBy         String?  @map("created_by") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  category     Category?    @relation(fields: [categoryId], references: [id])
+  location     Location?    @relation(fields: [locationId], references: [id])
+  assignedUser Profile?     @relation("ItemAssignee", fields: [assignedTo], references: [id])
+  creator      Profile?     @relation("ItemCreator", fields: [createdBy], references: [id])
+  activityLogs ActivityLog[]
+
+  @@map("items")
+}
+
+// ═══════════════════════════════════════════════
+// ACTIVITY LOG
+// ═══════════════════════════════════════════════
+
+model ActivityLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  itemId    String   @map("item_id") @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  action    String   @db.VarChar(30) // created, updated, scanned, checked_out, checked_in, quantity_adjusted, moved, photo_added, retired, disposed, restocked, audit_verified
+  details   Json     @default("{}")
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  item Item    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user Profile? @relation("ActivityUser", fields: [userId], references: [id])
+
+  @@map("activity_log")
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import Sidebar from "@/components/Sidebar";
 import type { Item, Category, Location } from "@/types/database";
 
@@ -24,6 +24,7 @@ export default function InventoryPage() {
   useEffect(() => { loadData(); }, [filterCategory, filterStatus]);
 
   async function loadData() {
+    const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.push("/auth"); return; }
 
@@ -252,6 +253,7 @@ function AddItemModal({
     setSaving(true);
     setError("");
 
+    const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import Sidebar from "@/components/Sidebar";
 import type { Item, Category, Location, Profile, ActivityLog } from "@/types/database";
 
@@ -22,6 +22,7 @@ export default function ScanPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) router.push("/auth");
     });
@@ -34,6 +35,7 @@ export default function ScanPage() {
     setError("");
     setScannedItem(null);
 
+    const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
