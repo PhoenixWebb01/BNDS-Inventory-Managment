@@ -19,15 +19,12 @@ export default function ScanPage() {
   const [scannedItem, setScannedItem] = useState<ScannedItem | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [cameraActive, setCameraActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Check auth on mount
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) router.push("/auth");
     });
-    // Focus the input so USB barcode scanners work immediately
     inputRef.current?.focus();
   }, [router]);
 
@@ -40,15 +37,9 @@ export default function ScanPage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // Look up the item by barcode
     const { data, error: fetchError } = await supabase
       .from("items")
-      .select(`
-        *,
-        category:categories(*),
-        location:locations(*),
-        assigned_user:profiles!items_assigned_to_fkey(*)
-      `)
+      .select(`*, category:categories(*), location:locations(*), assigned_user:profiles!items_assigned_to_fkey(*)`)
       .eq("barcode", code.trim())
       .single();
 
@@ -58,95 +49,70 @@ export default function ScanPage() {
       return;
     }
 
-    // Log the scan
     await supabase.from("activity_log").insert({
-      item_id: data.id,
-      user_id: session.user.id,
-      action: "scanned",
-      details: { barcode: code },
+      item_id: data.id, user_id: session.user.id, action: "scanned", details: { barcode: code },
     });
 
-    // Fetch recent activity
     const { data: activity } = await supabase
       .from("activity_log")
       .select(`*, user:profiles(full_name, email)`)
       .eq("item_id", data.id)
-      .order("created_at", { ascending: false })
-      .limit(10);
+      .order("created_at", { ascending: false }).limit(10);
 
     setScannedItem({ ...data, activity: activity || [] } as ScannedItem);
     setLoading(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") {
-      lookupBarcode(manualCode);
-    }
+    if (e.key === "Enter") lookupBarcode(manualCode);
   }
 
   function formatDate(dateStr: string | null) {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric", month: "short", day: "numeric"
-    });
+    if (!dateStr) return "\u2014";
+    return new Date(dateStr).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
   }
 
-  function statusColor(status: string) {
+  function statusStyle(status: string) {
     const map: Record<string, string> = {
-      in_stock: "bg-green-100 text-green-700 border-green-200",
-      low_stock: "bg-yellow-100 text-yellow-700 border-yellow-200",
-      out_of_stock: "bg-red-100 text-red-700 border-red-200",
-      on_order: "bg-blue-100 text-blue-700 border-blue-200",
+      in_stock: "bg-primary-fixed/60 text-primary",
+      low_stock: "bg-warning-container text-on-warning-container",
+      out_of_stock: "bg-error-container text-on-error-container",
     };
-    return map[status] || "bg-gray-100 text-gray-600 border-gray-200";
+    return map[status] || "bg-surface-container text-on-surface-muted";
   }
 
   return (
     <div className="flex h-screen">
       <Sidebar />
 
-      <main className="flex-1 overflow-auto bg-gray-50 p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">Scan Barcode</h1>
-          <p className="text-gray-500">
-            Scan an item&apos;s barcode or enter it manually to view details.
+      <main className="flex-1 overflow-auto bg-background px-10 py-8">
+        <div className="mb-10">
+          <h1 className="font-[family-name:var(--font-hero)] text-[2rem] font-bold tracking-tight text-on-surface">
+            Scan Barcode
+          </h1>
+          <p className="mt-1 text-sm text-on-surface-muted">
+            Scan an item&apos;s barcode or type it manually to instantly view details.
           </p>
         </div>
 
-        {/* Scanner Input Area */}
-        <div className="mb-8 rounded-xl bg-white p-8 shadow-sm">
-          <div className="mx-auto max-w-lg">
-            {/* Camera Scanner Placeholder */}
-            {cameraActive ? (
-              <div className="mb-6 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 p-12 text-center">
-                <svg className="mx-auto h-16 w-16 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                    d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                </svg>
-                <p className="mt-4 text-blue-600 font-medium">Camera scanner will be enabled in Phase 3</p>
-                <p className="mt-1 text-sm text-blue-400">For now, use the manual entry or a USB scanner below</p>
-                <button
-                  onClick={() => setCameraActive(false)}
-                  className="mt-4 text-sm text-blue-500 underline hover:text-blue-700"
-                >
-                  Close camera
-                </button>
+        {/* Scanner Input — editorial, centered */}
+        <div className="mx-auto max-w-xl">
+          <div className="rounded-2xl bg-surface-card p-8" style={{ boxShadow: "var(--shadow-ambient)" }}>
+            {/* Camera placeholder */}
+            <div className="mb-6 flex items-center justify-center rounded-xl bg-surface-low py-10">
+              <div className="text-center">
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-container">
+                  <svg className="h-7 w-7 text-on-surface-subtle" fill="none" stroke="currentColor" strokeWidth={1.3} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                  </svg>
+                </div>
+                <p className="text-[13px] font-medium text-on-surface-muted">Camera scanner coming in Phase 3</p>
+                <p className="mt-0.5 text-[11px] text-on-surface-subtle">Use manual entry or a USB scanner below</p>
               </div>
-            ) : (
-              <button
-                onClick={() => setCameraActive(true)}
-                className="mb-6 w-full rounded-xl border-2 border-dashed border-gray-300 py-8 text-center transition hover:border-blue-400 hover:bg-blue-50"
-              >
-                <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <p className="mt-2 font-medium text-gray-500">Tap to open camera scanner</p>
-              </button>
-            )}
+            </div>
 
-            {/* Manual Entry / USB Scanner Input */}
+            {/* Input */}
             <div className="flex gap-3">
               <input
                 ref={inputRef}
@@ -154,99 +120,81 @@ export default function ScanPage() {
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-center font-mono text-lg tracking-wider focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                className="input-clinical flex-1 rounded-lg px-4 py-3 text-center font-mono text-base tracking-widest"
                 placeholder="BDX-PH-00001"
                 autoFocus
               />
               <button
                 onClick={() => lookupBarcode(manualCode)}
                 disabled={loading || !manualCode.trim()}
-                className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+                className="gradient-primary rounded-lg px-6 py-3 text-[13px] font-semibold text-on-primary transition-all hover:opacity-90 disabled:opacity-40"
               >
                 {loading ? "..." : "Look Up"}
               </button>
             </div>
-
-            <p className="mt-3 text-center text-xs text-gray-400">
-              USB barcode scanners will type the code and press Enter automatically.
-              You can also type a barcode manually.
+            <p className="mt-3 text-center text-[11px] text-on-surface-subtle">
+              USB scanners type the code and press Enter automatically.
             </p>
           </div>
         </div>
 
-        {/* Error Message */}
+        {/* Error */}
         {error && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-            <p className="font-medium text-red-600">{error}</p>
-            <p className="mt-1 text-sm text-red-400">Check the barcode and try again.</p>
+          <div className="mx-auto mt-6 max-w-xl rounded-xl bg-error-container p-5 text-center">
+            <p className="text-[13px] font-semibold text-on-error-container">{error}</p>
+            <p className="mt-0.5 text-[12px] text-on-error-container/70">Check the barcode and try again.</p>
           </div>
         )}
 
-        {/* Scanned Item Result */}
+        {/* Scanned Result */}
         {scannedItem && (
-          <div className="rounded-xl bg-white shadow-sm overflow-hidden">
-            {/* Item Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">{scannedItem.name}</h2>
-                  <p className="mt-1 font-mono text-sm text-blue-200">{scannedItem.barcode}</p>
+          <div className="mx-auto mt-8 max-w-3xl">
+            <div className="overflow-hidden rounded-2xl bg-surface-card" style={{ boxShadow: "var(--shadow-float)" }}>
+              {/* Gradient Header */}
+              <div className="gradient-primary px-8 py-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="font-[family-name:var(--font-hero)] text-xl font-bold text-on-primary">{scannedItem.name}</h2>
+                    <p className="mt-1 font-mono text-[13px] text-on-primary/70">{scannedItem.barcode}</p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${statusStyle(scannedItem.status)}`}>
+                    {scannedItem.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </span>
                 </div>
-                <span className={`rounded-full border px-3 py-1 text-sm font-medium ${statusColor(scannedItem.status)}`}>
-                  {scannedItem.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                </span>
               </div>
-            </div>
 
-            <div className="p-6">
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-                {/* Photo */}
-                <div className="lg:col-span-1">
-                  {scannedItem.photo_url ? (
-                    <img src={scannedItem.photo_url} alt={scannedItem.name} className="w-full rounded-lg object-cover" />
-                  ) : (
-                    <div className="flex h-40 items-center justify-center rounded-lg bg-gray-100 text-gray-300">
-                      <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-
-                {/* Key Details */}
-                <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <InfoCard label="Category" value={scannedItem.category?.name || "—"} />
-                  <InfoCard label="Location" value={scannedItem.location?.name || "—"} />
+              <div className="p-8">
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                  <InfoCard label="Category" value={scannedItem.category?.name || "\u2014"} />
+                  <InfoCard label="Location" value={scannedItem.location?.name || "\u2014"} />
                   <InfoCard label="Quantity" value={`${scannedItem.quantity} ${scannedItem.unit}`}
                     highlight={scannedItem.quantity <= scannedItem.min_quantity} />
-                  <InfoCard label="Vendor" value={scannedItem.vendor || "—"} />
+                  <InfoCard label="Vendor" value={scannedItem.vendor || "\u2014"} />
                   <InfoCard label="Purchase Date" value={formatDate(scannedItem.purchase_date)} />
                   <InfoCard label="Expiration" value={formatDate(scannedItem.expiration_date)} />
                 </div>
-              </div>
 
-              {scannedItem.description && (
-                <div className="mt-4 rounded-lg bg-gray-50 p-4">
-                  <p className="text-xs font-medium uppercase text-gray-400">Description</p>
-                  <p className="mt-1 text-sm text-gray-700">{scannedItem.description}</p>
+                {scannedItem.description && (
+                  <div className="mt-5 rounded-lg bg-surface-low px-5 py-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">Description</p>
+                    <p className="mt-1 text-[13px] text-on-surface-variant">{scannedItem.description}</p>
+                  </div>
+                )}
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    onClick={() => router.push(`/inventory/${scannedItem.id}`)}
+                    className="gradient-primary rounded-lg px-5 py-2.5 text-[13px] font-semibold text-on-primary transition hover:opacity-90"
+                  >
+                    View Full Details
+                  </button>
+                  <button
+                    onClick={() => { setScannedItem(null); setManualCode(""); inputRef.current?.focus(); }}
+                    className="rounded-lg bg-surface-container px-5 py-2.5 text-[13px] font-medium text-on-surface-variant transition hover:bg-surface-high"
+                  >
+                    Scan Another
+                  </button>
                 </div>
-              )}
-
-              {/* Actions */}
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={() => router.push(`/inventory/${scannedItem.id}`)}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  View Full Details
-                </button>
-                <button
-                  onClick={() => { setScannedItem(null); setManualCode(""); inputRef.current?.focus(); }}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  Scan Another
-                </button>
               </div>
             </div>
           </div>
@@ -258,9 +206,9 @@ export default function ScanPage() {
 
 function InfoCard({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className={`rounded-lg p-3 ${highlight ? "bg-red-50 border border-red-200" : "bg-gray-50"}`}>
-      <p className="text-xs font-medium uppercase text-gray-400">{label}</p>
-      <p className={`mt-1 text-sm font-medium ${highlight ? "text-red-600" : "text-gray-700"}`}>{value}</p>
+    <div className={`rounded-lg p-4 ${highlight ? "bg-error-container/40" : "bg-surface-low"}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">{label}</p>
+      <p className={`mt-1 text-[13px] font-medium ${highlight ? "text-on-error-container" : "text-on-surface-variant"}`}>{value}</p>
     </div>
   );
 }

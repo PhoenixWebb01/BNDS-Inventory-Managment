@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import Sidebar from "@/components/Sidebar";
 import type { Item, Category, Location } from "@/types/database";
@@ -22,19 +21,15 @@ export default function InventoryPage() {
   const [filterStatus, setFilterStatus] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [filterCategory, filterStatus]);
+  useEffect(() => { loadData(); }, [filterCategory, filterStatus]);
 
   async function loadData() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.push("/auth"); return; }
 
-    // Load categories for filter dropdown
     const { data: cats } = await supabase.from("categories").select("*").order("name");
     setCategories(cats || []);
 
-    // Load items with relations
     let query = supabase
       .from("items")
       .select(`*, category:categories(*), location:locations(*)`)
@@ -48,7 +43,6 @@ export default function InventoryPage() {
     setLoading(false);
   }
 
-  // Client-side search filter
   const filteredItems = items.filter((item) =>
     !search ||
     item.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -58,14 +52,14 @@ export default function InventoryPage() {
 
   function statusBadge(status: string) {
     const styles: Record<string, string> = {
-      in_stock: "bg-green-100 text-green-700",
-      low_stock: "bg-yellow-100 text-yellow-700",
-      out_of_stock: "bg-red-100 text-red-700",
-      on_order: "bg-blue-100 text-blue-700",
-      retired: "bg-gray-100 text-gray-500",
-      disposed: "bg-gray-100 text-gray-400",
+      in_stock: "bg-primary-fixed/60 text-primary",
+      low_stock: "bg-warning-container text-on-warning-container",
+      out_of_stock: "bg-error-container text-on-error-container",
+      on_order: "bg-tertiary-container text-tertiary",
+      retired: "bg-surface-container text-on-surface-subtle",
+      disposed: "bg-surface-container text-on-surface-subtle",
     };
-    return styles[status] || "bg-gray-100 text-gray-600";
+    return styles[status] || "bg-surface-container text-on-surface-muted";
   }
 
   function formatStatus(status: string) {
@@ -74,8 +68,8 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-lg text-gray-500">Loading inventory...</div>
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-surface-high border-t-primary" />
       </div>
     );
   }
@@ -84,34 +78,44 @@ export default function InventoryPage() {
     <div className="flex h-screen">
       <Sidebar />
 
-      <main className="flex-1 overflow-auto bg-gray-50 p-8">
+      <main className="flex-1 overflow-auto bg-background px-10 py-8">
         {/* Page Header */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-8 flex items-end justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Inventory</h1>
-            <p className="text-gray-500">{items.length} total items</p>
+            <h1 className="font-[family-name:var(--font-hero)] text-[2rem] font-bold tracking-tight text-on-surface">
+              Inventory
+            </h1>
+            <p className="mt-1 text-sm text-on-surface-muted">
+              {items.length} total items across {categories.length} categories
+            </p>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+            className="gradient-primary rounded-lg px-5 py-2.5 text-[13px] font-semibold text-on-primary transition-all hover:opacity-90"
+            style={{ boxShadow: "var(--shadow-ambient)" }}
           >
             + Add Item
           </button>
         </div>
 
-        {/* Search & Filters */}
+        {/* Search & Filters — clinical input style */}
         <div className="mb-6 flex flex-wrap gap-3">
-          <input
-            type="text"
-            placeholder="Search by name, barcode, or description..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 min-w-64 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
-          />
+          <div className="relative flex-1 min-w-64">
+            <svg className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-subtle" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by name, barcode, or description..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-clinical w-full rounded-lg py-2.5 pl-10 pr-4 text-[13px] text-on-surface placeholder:text-on-surface-subtle"
+            />
+          </div>
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+            className="input-clinical rounded-lg px-3 py-2.5 text-[13px] text-on-surface-variant"
           >
             <option value="">All Categories</option>
             {categories.map((cat) => (
@@ -121,7 +125,7 @@ export default function InventoryPage() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none"
+            className="input-clinical rounded-lg px-3 py-2.5 text-[13px] text-on-surface-variant"
           >
             <option value="">All Statuses</option>
             <option value="in_stock">In Stock</option>
@@ -131,84 +135,88 @@ export default function InventoryPage() {
           </select>
         </div>
 
-        {/* Items Table */}
-        <div className="overflow-hidden rounded-xl bg-white shadow-sm">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                <th className="px-6 py-3">Item</th>
-                <th className="px-6 py-3">Barcode</th>
-                <th className="px-6 py-3">Category</th>
-                <th className="px-6 py-3">Location</th>
-                <th className="px-6 py-3">Qty</th>
-                <th className="px-6 py-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
-                    {items.length === 0
-                      ? 'No items yet. Click "+ Add Item" to get started!'
-                      : "No items match your search."}
-                  </td>
-                </tr>
-              ) : (
-                filteredItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="cursor-pointer transition hover:bg-blue-50"
-                    onClick={() => router.push(`/inventory/${item.id}`)}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {item.photo_url ? (
-                          <img
-                            src={item.photo_url}
-                            alt={item.name}
-                            className="h-10 w-10 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                            </svg>
-                          </div>
-                        )}
-                        <div>
-                          <div className="font-medium text-gray-800">{item.name}</div>
-                          {item.description && (
-                            <div className="text-xs text-gray-400 truncate max-w-xs">{item.description}</div>
-                          )}
-                        </div>
+        {/* Items Table — No-Divider Rule, tonal rows */}
+        <div className="rounded-xl bg-surface-card" style={{ boxShadow: "var(--shadow-ambient)" }}>
+          {/* Header Row */}
+          <div className="grid grid-cols-12 gap-4 bg-surface-high px-6 py-3">
+            <div className="col-span-4 text-[10px] font-semibold uppercase tracking-[0.05em] text-on-surface-muted">Item</div>
+            <div className="col-span-2 text-[10px] font-semibold uppercase tracking-[0.05em] text-on-surface-muted">Barcode</div>
+            <div className="col-span-2 text-[10px] font-semibold uppercase tracking-[0.05em] text-on-surface-muted">Category</div>
+            <div className="col-span-1 text-[10px] font-semibold uppercase tracking-[0.05em] text-on-surface-muted">Location</div>
+            <div className="col-span-1 text-right text-[10px] font-semibold uppercase tracking-[0.05em] text-on-surface-muted">Qty</div>
+            <div className="col-span-2 text-right text-[10px] font-semibold uppercase tracking-[0.05em] text-on-surface-muted">Status</div>
+          </div>
+
+          {/* Data Rows — gap-based separation, no lines */}
+          <div className="p-2 space-y-1">
+            {filteredItems.length === 0 ? (
+              <div className="py-16 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface-low">
+                  <svg className="h-6 w-6 text-on-surface-subtle" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-on-surface-muted">
+                  {items.length === 0 ? "No items yet" : "No items match your search"}
+                </p>
+                <p className="mt-1 text-[12px] text-on-surface-subtle">
+                  {items.length === 0 ? 'Click "+ Add Item" to get started.' : "Try adjusting your filters."}
+                </p>
+              </div>
+            ) : (
+              filteredItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="grid grid-cols-12 gap-4 items-center rounded-lg px-4 py-3 cursor-pointer transition-colors hover:bg-surface-low"
+                  onClick={() => router.push(`/inventory/${item.id}`)}
+                >
+                  {/* Item */}
+                  <div className="col-span-4 flex items-center gap-3">
+                    {item.photo_url ? (
+                      <img src={item.photo_url} alt={item.name} className="h-9 w-9 rounded-lg object-cover" />
+                    ) : (
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-low">
+                        <svg className="h-4 w-4 text-on-surface-subtle" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-sm text-gray-600">{item.barcode}</td>
-                    <td className="px-6 py-4">
-                      {item.category && (
-                        <span className="inline-flex items-center gap-1.5 text-sm text-gray-600">
-                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.category.color }} />
-                          {item.category.name}
-                        </span>
+                    )}
+                    <div>
+                      <div className="text-[13px] font-medium text-on-surface">{item.name}</div>
+                      {item.description && (
+                        <div className="mt-0.5 max-w-xs truncate text-[11px] text-on-surface-subtle">{item.description}</div>
                       )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {item.location?.name || "—"}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-800">
-                      {item.quantity} {item.unit}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadge(item.status)}`}>
-                        {formatStatus(item.status)}
+                    </div>
+                  </div>
+                  {/* Barcode */}
+                  <div className="col-span-2 font-mono text-[12px] text-on-surface-muted">{item.barcode}</div>
+                  {/* Category */}
+                  <div className="col-span-2">
+                    {item.category && (
+                      <span className="inline-flex items-center gap-1.5 text-[12px] text-on-surface-variant">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.category.color }} />
+                        {item.category.name}
                       </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                    )}
+                  </div>
+                  {/* Location */}
+                  <div className="col-span-1 text-[12px] text-on-surface-muted">
+                    {item.location?.name || "\u2014"}
+                  </div>
+                  {/* Qty — right-aligned per design rules */}
+                  <div className="col-span-1 text-right text-[13px] font-semibold text-on-surface">
+                    {item.quantity}
+                  </div>
+                  {/* Status */}
+                  <div className="col-span-2 text-right">
+                    <span className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusBadge(item.status)}`}>
+                      {formatStatus(item.status)}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
         {/* Add Item Modal */}
@@ -224,25 +232,17 @@ export default function InventoryPage() {
   );
 }
 
-// ===== ADD ITEM MODAL =====
+// ===== ADD ITEM MODAL — Glassmorphism overlay =====
 function AddItemModal({
-  categories,
-  onClose,
-  onSaved,
+  categories, onClose, onSaved,
 }: {
   categories: Category[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [form, setForm] = useState({
-    name: "",
-    description: "",
-    category_id: "",
-    quantity: 0,
-    min_quantity: 0,
-    unit: "each",
-    vendor: "",
-    notes: "",
+    name: "", description: "", category_id: "",
+    quantity: 0, min_quantity: 0, unit: "each", vendor: "", notes: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -255,7 +255,6 @@ function AddItemModal({
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    // Look up category prefix to generate barcode
     let barcode = "";
     if (form.category_id) {
       const cat = categories.find((c) => c.id === form.category_id);
@@ -266,76 +265,55 @@ function AddItemModal({
     }
 
     const { error: insertError } = await supabase.from("items").insert({
-      ...form,
-      barcode,
-      category_id: form.category_id || null,
-      created_by: session.user.id,
+      ...form, barcode, category_id: form.category_id || null, created_by: session.user.id,
     });
 
-    if (insertError) {
-      setError(insertError.message);
-      setSaving(false);
-      return;
-    }
-
-    // Log creation
+    if (insertError) { setError(insertError.message); setSaving(false); return; }
     onSaved();
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">Add New Item</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">&times;</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-on-surface/20">
+      {/* Glass modal */}
+      <div
+        className="glass w-full max-w-lg rounded-2xl p-8"
+        style={{ boxShadow: "var(--shadow-float)", background: "rgba(255,255,255,0.92)", backdropFilter: "blur(16px)" }}
+      >
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="font-[family-name:var(--font-hero)] text-xl font-semibold text-on-surface">Add New Item</h2>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-on-surface-muted transition hover:bg-surface-container">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSave} className="space-y-5">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Item Name *</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              placeholder="e.g., 1mL Syringes (Box of 100)"
-              required
-            />
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">Item Name *</label>
+            <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="input-clinical w-full rounded-lg px-4 py-2.5 text-[13px]" placeholder="e.g., 1mL Syringes (Box of 100)" required />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              placeholder="Optional description..."
-              rows={2}
-            />
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">Description</label>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="input-clinical w-full rounded-lg px-4 py-2.5 text-[13px]" placeholder="Optional description..." rows={2} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Category *</label>
-              <select
-                value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                required
-              >
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">Category *</label>
+              <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+                className="input-clinical w-full rounded-lg px-3 py-2.5 text-[13px]" required>
                 <option value="">Select...</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
+                {categories.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Unit</label>
-              <select
-                value={form.unit}
-                onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              >
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">Unit</label>
+              <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                className="input-clinical w-full rounded-lg px-3 py-2.5 text-[13px]">
                 <option value="each">Each</option>
                 <option value="box">Box</option>
                 <option value="case">Case</option>
@@ -346,55 +324,34 @@ function AddItemModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Quantity</label>
-              <input
-                type="number"
-                value={form.quantity}
-                onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                min={0}
-              />
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">Quantity</label>
+              <input type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value) || 0 })}
+                className="input-clinical w-full rounded-lg px-4 py-2.5 text-[13px]" min={0} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Min Quantity (Reorder Alert)</label>
-              <input
-                type="number"
-                value={form.min_quantity}
-                onChange={(e) => setForm({ ...form, min_quantity: parseInt(e.target.value) || 0 })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                min={0}
-              />
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">Min Qty (Reorder)</label>
+              <input type="number" value={form.min_quantity} onChange={(e) => setForm({ ...form, min_quantity: parseInt(e.target.value) || 0 })}
+                className="input-clinical w-full rounded-lg px-4 py-2.5 text-[13px]" min={0} />
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Vendor</label>
-            <input
-              type="text"
-              value={form.vendor}
-              onChange={(e) => setForm({ ...form, vendor: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              placeholder="e.g., McKesson, CDW"
-            />
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">Vendor</label>
+            <input type="text" value={form.vendor} onChange={(e) => setForm({ ...form, vendor: e.target.value })}
+              className="input-clinical w-full rounded-lg px-4 py-2.5 text-[13px]" placeholder="e.g., McKesson, CDW" />
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
+            <div className="rounded-lg bg-error-container px-4 py-3 text-[13px] font-medium text-on-error-container">{error}</div>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-            >
+            <button type="button" onClick={onClose}
+              className="rounded-lg bg-surface-container px-5 py-2.5 text-[13px] font-medium text-on-surface-variant transition hover:bg-surface-high">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
+            <button type="submit" disabled={saving}
+              className="gradient-primary rounded-lg px-5 py-2.5 text-[13px] font-semibold text-on-primary transition-all hover:opacity-90 disabled:opacity-50">
               {saving ? "Saving..." : "Add Item"}
             </button>
           </div>

@@ -20,26 +20,14 @@ export default function AuthPage() {
 
     try {
       if (isSignUp) {
-        // Sign up a new user
         const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-              role: "staff", // default role, admin can change later
-            },
-          },
+          email, password,
+          options: { data: { full_name: fullName, role: "staff" } },
         });
         if (error) throw error;
-        // Supabase will send a confirmation email
         setError("Check your email for a confirmation link!");
       } else {
-        // Sign in existing user
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         router.push("/dashboard");
       }
@@ -52,38 +40,44 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 p-4">
-      <div className="w-full max-w-md">
-        {/* Logo / Header */}
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-orange-500 text-2xl font-bold text-white shadow-lg">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 opacity-30" style={{
+        backgroundImage: "radial-gradient(circle at 25% 25%, rgba(0,107,91,0.06) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(80,68,225,0.04) 0%, transparent 50%)"
+      }} />
+
+      <div className="relative z-10 w-full max-w-md">
+        {/* Logo */}
+        <div className="mb-10 text-center">
+          <div className="gradient-primary mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl text-base font-bold tracking-wide text-on-primary"
+            style={{ boxShadow: "var(--shadow-ambient)" }}>
             BDX
           </div>
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="font-[family-name:var(--font-hero)] text-2xl font-bold text-on-surface">
             Boudreaux&apos;s Inventory
           </h1>
-          <p className="mt-1 text-blue-200">
+          <p className="mt-1 text-[13px] text-on-surface-muted">
             Drug Store Inventory Management System
           </p>
         </div>
 
-        {/* Auth Form */}
-        <div className="rounded-xl bg-white p-8 shadow-2xl">
-          <h2 className="mb-6 text-xl font-semibold text-gray-800">
+        {/* Auth Card — tonal lift */}
+        <div className="rounded-2xl bg-surface-card p-8" style={{ boxShadow: "var(--shadow-float)" }}>
+          <h2 className="mb-6 font-[family-name:var(--font-hero)] text-xl font-semibold text-on-surface">
             {isSignUp ? "Create Account" : "Sign In"}
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {isSignUp && (
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">
                   Full Name
                 </label>
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                  className="input-clinical w-full rounded-lg px-4 py-3 text-[13px]"
                   placeholder="Phoenix Webb"
                   required
                 />
@@ -91,28 +85,28 @@ export default function AuthPage() {
             )}
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">
                 Email
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                className="input-clinical w-full rounded-lg px-4 py-3 text-[13px]"
                 placeholder="you@boudreauxrx.com"
                 required
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.05em] text-on-surface-subtle">
                 Password
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                className="input-clinical w-full rounded-lg px-4 py-3 text-[13px]"
                 placeholder="Min 6 characters"
                 minLength={6}
                 required
@@ -120,13 +114,11 @@ export default function AuthPage() {
             </div>
 
             {error && (
-              <div
-                className={`rounded-lg p-3 text-sm ${
-                  error.includes("Check your email")
-                    ? "bg-green-50 text-green-700"
-                    : "bg-red-50 text-red-700"
-                }`}
-              >
+              <div className={`rounded-lg px-4 py-3 text-[13px] font-medium ${
+                error.includes("Check your email")
+                  ? "bg-success-container text-primary"
+                  : "bg-error-container text-on-error-container"
+              }`}>
                 {error}
               </div>
             )}
@@ -134,24 +126,18 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-blue-600 py-2.5 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+              className="gradient-primary w-full rounded-lg py-3 text-[13px] font-semibold text-on-primary transition-all hover:opacity-90 disabled:opacity-50"
+              style={{ boxShadow: "var(--shadow-ambient)" }}
             >
-              {loading
-                ? "Please wait..."
-                : isSignUp
-                ? "Create Account"
-                : "Sign In"}
+              {loading ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-600">
+          <div className="mt-6 text-center text-[13px] text-on-surface-muted">
             {isSignUp ? "Already have an account?" : "Need an account?"}{" "}
             <button
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError("");
-              }}
-              className="font-medium text-blue-600 hover:text-blue-800"
+              onClick={() => { setIsSignUp(!isSignUp); setError(""); }}
+              className="font-semibold text-primary transition hover:text-primary-container"
             >
               {isSignUp ? "Sign In" : "Create one"}
             </button>
